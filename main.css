@@ -507,9 +507,10 @@ hr {
   display: block;
   text-align: center;
   float: right; }
-}
+
 .game-explanation {
   margin-top: 30px; }
+
 
 @media screen and (max-width: 520px) {
   html, body {

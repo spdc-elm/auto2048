@@ -975,12 +975,15 @@ function sleep(ms) {//休眠函数，记得加await sleep()调用
 
 async function startAgent() {
   move_cnt=0;//步数统计
-  while(!GM.over){
+  const cutoff_max = parseInt(document.getElementById("cutoff-max").value);
+  var max=0
+  while(!GM.over & max < cutoff_max){
     move_cnt++;
     [bestMove,bestGrade] = calculateBestMove(GM,depth=0);
     while(!GM.move(bestMove)&&bestMove<3){//如果移动不成功，就尝试其他的步骤
       bestMove++;
     }
+    var max = Math.max.apply(null, GM.grid.visualize().flat())
     await sleep(10);
   }
 }
@@ -992,7 +995,7 @@ function calculateBestMove(gameManager,depth=0){
   for(let i=0;i<4;i++){
     
     grade=0
-    num=20
+    num=5
     for(let j=0;j<num;j++){
       Emulator=newEmulator(gameManager)
       grade+=evaluateMove(Emulator,i,depth)
@@ -1029,13 +1032,14 @@ function evaluateMove(Emulator, move,depth){
     var delta_score=Emulator.score-prev_score
     var max = Math.max.apply(null, Emulator.grid.visualize().flat());
     var score_of_empty_tiles=countEmptyTiles(Emulator.grid.visualize())*max/16 //把剩下方块数放大到更其他权重差不多
+    var board_grade=computeBoardGrade(Emulator.grid.visualize())
     if(depth==0){
       var grade_of_next_move=0
     }else{
       var [_,grade_of_next_move]=calculateBestMove(Emulator,depth-1)
     }
 
-    var grade=calculateGrade(delta_score,score_of_empty_tiles,max,grade_of_next_move)
+    var grade=calculateGrade(delta_score,score_of_empty_tiles,max,grade_of_next_move,board_grade)
     return grade
     
   }else{
@@ -1043,7 +1047,48 @@ function evaluateMove(Emulator, move,depth){
   }
 }
 
-function calculateGrade(delta_score,score_of_empty_tiles,max,grade_of_next_move){
-  return 0.5*delta_score+2*score_of_empty_tiles+0.2*grade_of_next_move
+function computeBoardGrade(cells){//计算盘面整体形状分，给四角、侧边权重高，中间权重低，希望让大方块贴角
+  weights1=[[2,2,2,4],
+           [1,1,1,1],
+           [1,1,1,1],
+           [1,1,1,1]]
+  weights2=[[1,1,1,4],
+           [1,1,1,2],
+           [1,1,1,2],
+           [1,1,1,2]]
+  
+  a=sumMatrixElement(elementwiseMultiply(cells,weights1))
+  b=sumMatrixElement(elementwiseMultiply(cells,weights2))
+  grade=a>b ? a:b
+  grade /= 16 //这里是凭感觉除的
+  return grade
+}
+function sumMatrixElement(matrix){
+  result=0
+  for(i=0;i<matrix.length;i++){
+    for(j=0;j<matrix[i].length;j++){
+      result += matrix[i][j]
+    }
+  }
+  return(result)
+}
+function elementwiseMultiply(matrix1, matrix2) {
+  if (matrix1.length !== matrix2.length || matrix1[0].length !== matrix2[0].length) {
+    throw new Error('Matrix dimensions must match');
+  }
+  const result = [];
+  for (let i = 0; i < matrix1.length; i++) {
+    const row = [];
+    for (let j = 0; j < matrix1[i].length; j++) {
+      row.push(matrix1[i][j] * matrix2[i][j]);
+    }
+    result.push(row);
+  }
+
+  return result;
+}
+
+function calculateGrade(delta_score,score_of_empty_tiles,max,grade_of_next_move,board_grade){
+  return 2*delta_score+2*score_of_empty_tiles+0.2*grade_of_next_move+1*board_grade
 }
 
